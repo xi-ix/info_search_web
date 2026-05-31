@@ -1,0 +1,9 @@
+[
+  {
+    "title": "OpenCompass",
+    "summary": "一个面向大模型评测的开源框架，支持多模型、多数据集和统一评测流程，适合做能力对比与回归验证。",
+    "link": "https://github.com/open-compass/OpenCompass",
+    "source": "GitHub",
+    "category": "projects"
+  }
+]

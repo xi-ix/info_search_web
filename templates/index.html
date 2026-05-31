@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Radar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Personal research dashboard</p>
+          <h1>AI Radar</h1>
+          <p class="hero-text">
+            帮你集中追踪新的大模型论文、值得关注的 GitHub 项目，以及最新模型动态。
+          </p>
+        </div>
+        <div class="hero-panel">
+          <div class="metric metric-main">
+            <span>概览</span>
+            <strong>{{ counts.values() | sum }} 条内容</strong>
+            <p>
+              近 {{ recent_days }} 天 · 收藏 {{ favorites | length }} 条 ·
+              {% if freshest %}最新 {{ freshest.published_at.strftime('%m-%d %H:%M') }}{% else %}暂无更新{% endif %}
+            </p>
+            <p>
+              本次刷新 {{ '%.1f'|format(refresh_elapsed_seconds) }} 秒
+              / 最多 {{ '%.1f'|format(refresh_timeout_seconds) }} 秒
+            </p>
+          </div>
+          <div class="metric metric-tags">
+            <span>热门标签</span>
+            <strong>{% if tag_counts %}{{ tag_counts[0][0] }}{% else %}暂无{% endif %}</strong>
+            <p>
+              {% if tag_counts %}
+                {% for tag, count in tag_counts[:3] %}
+                {{ tag }}{% if not loop.last %} · {% endif %}
+                {% endfor %}
+              {% else %}
+                暂无标签
+              {% endif %}
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <section class="stats">
+        <article class="stat-card stat-card-wide">
+          <span>分类概览</span>
+          <strong>
+            论文 {{ counts.get('papers', 0) }} / {{ limits.get('papers', 0) }}
+            · 项目 {{ counts.get('projects', 0) }} / {{ limits.get('projects', 0) }}
+            · 资讯 {{ counts.get('news', 0) }} / {{ limits.get('news', 0) }}
+          </strong>
+          <p class="source-status">
+            论文源:
+            {% if source_status.get('papers', '').startswith('live-rss-') %}
+              实时 arXiv RSS
+            {% elif source_status.get('papers', '').startswith('live-api-') %}
+              实时 arXiv API
+            {% elif source_status.get('papers', '').startswith('fallback-empty') %}
+              兜底数据（抓取成功但没有可用条目）
+            {% elif source_status.get('papers', '').startswith('fallback-error') %}
+              兜底数据（抓取失败）
+            {% else %}
+              兜底数据
+            {% endif %}
+            · GitHub 源:
+            {% if source_status.get('projects', '').startswith('live-github-') %}
+              实时 GitHub API
+            {% elif source_status.get('projects', '').startswith('fallback-empty') %}
+              兜底数据（无可用仓库）
+            {% elif source_status.get('projects', '').startswith('fallback-error') %}
+              兜底数据（抓取失败）
+            {% else %}
+              兜底数据
+            {% endif %}
+            · 资讯源:
+            {% if source_status.get('news', '').startswith('live-news-') %}
+              实时 RSS/Atom
+            {% elif source_status.get('news', '').startswith('fallback-empty') %}
+              兜底数据（无可用资讯）
+            {% elif source_status.get('news', '').startswith('fallback-error') %}
+              兜底数据（抓取失败）
+            {% else %}
+              兜底数据
+            {% endif %}
+          </p>
+          {% if paper_source_detail and '|' in paper_source_detail %}
+          <p class="source-detail">{{ paper_source_detail.split('|', 1)[1] }}</p>
+          {% endif %}
+          {% if project_source_detail and '|' in project_source_detail %}
+          <p class="source-detail">{{ project_source_detail.split('|', 1)[1] }}</p>
+          {% endif %}
+          {% if news_source_detail and '|' in news_source_detail %}
+          <p class="source-detail">{{ news_source_detail.split('|', 1)[1] }}</p>
+          {% endif %}
+        </article>
+      </section>
+
+      <section class="tags">
+        {% for tag, count in tag_counts %}
+        <span class="tag-chip">{{ tag }} · {{ count }}</span>
+        {% endfor %}
+      </section>
+
+      <section class="favorites-panel" id="favorites-section">
+        <details class="lane-toggle">
+          <summary class="lane-heading">
+            <div>
+              <h2>本地收藏</h2>
+              <p>收藏会保存到项目里的本地文件，方便后续整理和回看</p>
+            </div>
+            <span class="lane-count" id="favorites-count">{{ favorites | length }} 条</span>
+          </summary>
+          <div class="favorites-list" id="favorites-list">
+            {% if favorites %}
+              {% for item in favorites %}
+              <article class="favorite-item" data-link="{{ item.link }}">
+                <a class="favorite-link" href="{{ item.link }}" target="_blank" rel="noreferrer">
+                  <span>{{ item.category }}</span>
+                  <strong>{{ item.title }}</strong>
+                </a>
+                <form action="{{ url_for('save_favorite') }}" method="post" class="favorite-remove-form favorite-form" data-link="{{ item.link }}">
+                  <input type="hidden" name="title" value="{{ item.title }}" />
+                  <input type="hidden" name="summary" value="{{ item.summary }}" />
+                  <input type="hidden" name="link" value="{{ item.link }}" />
+                  <input type="hidden" name="source" value="{{ item.source }}" />
+                  <input type="hidden" name="category" value="{{ item.category }}" />
+                  <input type="hidden" name="anchor" value="favorites-section" />
+                  <button class="favorite-remove-btn" type="submit">取消收藏</button>
+                </form>
+              </article>
+              {% endfor %}
+            {% else %}
+              <p class="empty-text">还没有收藏内容，看到感兴趣的条目就点“收藏”。</p>
+            {% endif %}
+          </div>
+        </details>
+      </section>
+
+      <main class="board">
+        <section class="lane" id="papers-section">
+          <details class="lane-toggle">
+            <summary class="lane-heading">
+              <div>
+                <h2>新论文</h2>
+                <p>优先放和大模型、agent、推理、多模态相关的工作</p>
+              </div>
+              <span class="lane-count">{{ counts.get('papers', 0) }} 条</span>
+            </summary>
+            <div class="lane-content">
+              {% for item in grouped.get('papers', []) %}
+              <article class="card">
+                <div class="card-meta">
+                  <span>{{ item.source }}</span>
+                  <span>{{ item.published_at.strftime('%m-%d %H:%M') }}</span>
+                </div>
+                <h3>{{ item.title }}</h3>
+                {% if item.title_zh %}
+                <p class="translated-title">{{ item.title_zh }}</p>
+                {% endif %}
+                <p>{{ item.summary }}</p>
+                {% if item.summary_zh %}
+                <p class="translated-summary">{{ item.summary_zh }}</p>
+                {% endif %}
+                <div class="card-footer">
+                  <div class="tag-list">
+                    {% for tag in item.tags %}
+                    <span>{{ tag }}</span>
+                    {% endfor %}
+                  </div>
+                  <div class="actions">
+                    <form action="{{ url_for('save_favorite') }}" method="post" class="favorite-form" data-link="{{ item.link }}">
+                      <input type="hidden" name="title" value="{{ item.title }}" />
+                      <input type="hidden" name="summary" value="{{ item.summary }}" />
+                      <input type="hidden" name="link" value="{{ item.link }}" />
+                      <input type="hidden" name="source" value="{{ item.source }}" />
+                      <input type="hidden" name="category" value="{{ item.category }}" />
+                      <input type="hidden" name="anchor" value="papers-section" />
+                      <button class="favorite-btn" type="submit" data-default-label="收藏" data-active-label="已收藏">
+                        {% if item.link in favorite_links %}已收藏{% else %}收藏{% endif %}
+                      </button>
+                    </form>
+                    <a href="{{ item.link }}" target="_blank" rel="noreferrer">查看</a>
+                  </div>
+                </div>
+              </article>
+              {% endfor %}
+            </div>
+          </details>
+        </section>
+
+        <section class="lane" id="projects-section">
+          <details class="lane-toggle">
+            <summary class="lane-heading">
+              <div>
+                <h2>GitHub 项目</h2>
+                <p>适合收藏、试用或二次开发的工具与仓库</p>
+              </div>
+              <span class="lane-count">{{ counts.get('projects', 0) }} 条</span>
+            </summary>
+            <div class="lane-content">
+              {% for item in grouped.get('projects', []) %}
+              <article class="card">
+                <div class="card-meta">
+                  <span>{{ item.source }}</span>
+                  <span>{{ item.published_at.strftime('%m-%d %H:%M') }}</span>
+                </div>
+                <h3>{{ item.title }}</h3>
+                {% if item.title_zh %}
+                <p class="translated-title">{{ item.title_zh }}</p>
+                {% endif %}
+                <p>{{ item.summary }}</p>
+                {% if item.summary_zh %}
+                <p class="translated-summary">{{ item.summary_zh }}</p>
+                {% endif %}
+                <div class="card-footer">
+                  <div class="tag-list">
+                    {% for tag in item.tags %}
+                    <span>{{ tag }}</span>
+                    {% endfor %}
+                  </div>
+                  <div class="actions">
+                    <form action="{{ url_for('save_favorite') }}" method="post" class="favorite-form" data-link="{{ item.link }}">
+                      <input type="hidden" name="title" value="{{ item.title }}" />
+                      <input type="hidden" name="summary" value="{{ item.summary }}" />
+                      <input type="hidden" name="link" value="{{ item.link }}" />
+                      <input type="hidden" name="source" value="{{ item.source }}" />
+                      <input type="hidden" name="category" value="{{ item.category }}" />
+                      <input type="hidden" name="anchor" value="projects-section" />
+                      <button class="favorite-btn" type="submit" data-default-label="收藏" data-active-label="已收藏">
+                        {% if item.link in favorite_links %}已收藏{% else %}收藏{% endif %}
+                      </button>
+                    </form>
+                    <a href="{{ item.link }}" target="_blank" rel="noreferrer">查看</a>
+                  </div>
+                </div>
+              </article>
+              {% endfor %}
+            </div>
+          </details>
+        </section>
+
+        <section class="lane" id="news-section">
+          <details class="lane-toggle">
+            <summary class="lane-heading">
+              <div>
+                <h2>模型资讯</h2>
+                <p>关注新模型发布、推理成本和生态变化</p>
+              </div>
+              <span class="lane-count">{{ counts.get('news', 0) }} 条</span>
+            </summary>
+            <div class="lane-content">
+              {% for item in grouped.get('news', []) %}
+              <article class="card">
+                <div class="card-meta">
+                  <span>{{ item.source }}</span>
+                  <span>{{ item.published_at.strftime('%m-%d %H:%M') }}</span>
+                </div>
+                <h3>{{ item.title }}</h3>
+                {% if item.title_zh %}
+                <p class="translated-title">{{ item.title_zh }}</p>
+                {% endif %}
+                <p>{{ item.summary }}</p>
+                {% if item.summary_zh %}
+                <p class="translated-summary">{{ item.summary_zh }}</p>
+                {% endif %}
+                <div class="card-footer">
+                  <div class="tag-list">
+                    {% for tag in item.tags %}
+                    <span>{{ tag }}</span>
+                    {% endfor %}
+                  </div>
+                  <div class="actions">
+                    <form action="{{ url_for('save_favorite') }}" method="post" class="favorite-form" data-link="{{ item.link }}">
+                      <input type="hidden" name="title" value="{{ item.title }}" />
+                      <input type="hidden" name="summary" value="{{ item.summary }}" />
+                      <input type="hidden" name="link" value="{{ item.link }}" />
+                      <input type="hidden" name="source" value="{{ item.source }}" />
+                      <input type="hidden" name="category" value="{{ item.category }}" />
+                      <input type="hidden" name="anchor" value="news-section" />
+                      <button class="favorite-btn" type="submit" data-default-label="收藏" data-active-label="已收藏">
+                        {% if item.link in favorite_links %}已收藏{% else %}收藏{% endif %}
+                      </button>
+                    </form>
+                    <a href="{{ item.link }}" target="_blank" rel="noreferrer">查看</a>
+                  </div>
+                </div>
+              </article>
+              {% endfor %}
+            </div>
+          </details>
+        </section>
+      </main>
+    </div>
+    <script>
+      const favoritesList = document.getElementById("favorites-list");
+      const favoritesCount = document.getElementById("favorites-count");
+
+      function renderFavorites(favorites) {
+        favoritesCount.textContent = `${favorites.length} 条`;
+        if (!favorites.length) {
+          favoritesList.innerHTML = '<p class="empty-text">还没有收藏内容，看到感兴趣的条目就点“收藏”。</p>';
+          return;
+        }
+
+        favoritesList.innerHTML = favorites
+          .map(
+            (item) => `
+              <article class="favorite-item" data-link="${item.link}">
+                <a class="favorite-link" href="${item.link}" target="_blank" rel="noreferrer">
+                  <span>${item.category}</span>
+                  <strong>${item.title}</strong>
+                </a>
+                <form action="{{ url_for('save_favorite') }}" method="post" class="favorite-remove-form favorite-form" data-link="${item.link}">
+                  <input type="hidden" name="title" value="${item.title}" />
+                  <input type="hidden" name="summary" value="${item.summary}" />
+                  <input type="hidden" name="link" value="${item.link}" />
+                  <input type="hidden" name="source" value="${item.source}" />
+                  <input type="hidden" name="category" value="${item.category}" />
+                  <input type="hidden" name="anchor" value="favorites-section" />
+                  <button class="favorite-remove-btn" type="submit">取消收藏</button>
+                </form>
+              </article>
+            `
+          )
+          .join("");
+      }
+
+      document.addEventListener("submit", async (event) => {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || !form.classList.contains("favorite-form")) {
+          return;
+        }
+
+        event.preventDefault();
+        const button = form.querySelector("button");
+        if (button) {
+          button.disabled = true;
+        }
+
+        try {
+          const response = await fetch(form.action, {
+            method: "POST",
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+            },
+            body: new FormData(form),
+          });
+
+          const payload = await response.json();
+          if (!response.ok || !payload.ok) {
+            throw new Error("收藏操作失败");
+          }
+
+          const link = form.dataset.link;
+          document.querySelectorAll(`.favorite-form[data-link="${link}"]`).forEach((relatedForm) => {
+            const relatedButton = relatedForm.querySelector(".favorite-btn");
+            if (!relatedButton) {
+              return;
+            }
+
+            const defaultLabel = relatedButton.dataset.defaultLabel || "收藏";
+            const activeLabel = relatedButton.dataset.activeLabel || "已收藏";
+            relatedButton.textContent = payload.is_favorited ? activeLabel : defaultLabel;
+          });
+
+          renderFavorites(payload.favorites);
+        } catch (error) {
+          console.error(error);
+          window.alert("收藏操作失败，请稍后重试。");
+        } finally {
+          if (button) {
+            button.disabled = false;
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

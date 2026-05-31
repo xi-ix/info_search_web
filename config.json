@@ -1,0 +1,95 @@
+{
+  "refresh_timeout_seconds": 10,
+  "recent_days": 10,
+  "arxiv": {
+    "feeds": [
+      "https://export.arxiv.org/rss/cs.AI",
+      "https://export.arxiv.org/rss/cs.LG",
+      "https://export.arxiv.org/rss/cs.CL"
+    ],
+    "max_items": 30,
+    "min_results": 8,
+    "api_max_results": 20,
+    "proxy": "http://127.0.0.1:7897",
+    "timeout_seconds": 10,
+    "keywords": [
+      "llm",
+      "large language model",
+      "agent",
+      "rag",
+      "multimodal",
+      "reasoning"
+    ]
+  },
+  "github": {
+    "max_items": 20,
+    "min_stars": 200,
+    "sort": "updated",
+    "order": "desc",
+    "timeout_seconds": 10,
+    "proxy": "http://127.0.0.1:7897",
+    "token": "",
+    "keywords": [
+      "llm",
+      "agent",
+      "rag",
+      "multimodal",
+      "reasoning"
+    ]
+  },
+  "news": {
+    "feeds": [
+      "https://openai.com/news/rss.xml",
+      "https://huggingface.co/blog/feed.xml",
+      "https://about.fb.com/news/category/product-news/feed/",
+      "https://qwenlm.github.io/blog/index.xml"
+    ],
+    "html_sources": [
+      {
+        "name": "Hugging Face Blog",
+        "kind": "huggingface_blog",
+        "url": "https://huggingface.co/blog"
+      },
+      {
+        "name": "Meta Newsroom",
+        "kind": "meta_newsroom",
+        "url": "https://about.fb.com/news/"
+      },
+      {
+        "name": "DeepSeek News",
+        "kind": "deepseek_news",
+        "url": "https://api-docs.deepseek.com/updates/"
+      }
+    ],
+    "max_items": 20,
+    "recent_days": 10,
+    "timeout_seconds": 2,
+    "proxy": "http://127.0.0.1:7897",
+    "keywords": [
+      "model",
+      "llm",
+      "agent",
+      "reasoning",
+      "multimodal",
+      "release",
+      "api"
+    ]
+  },
+  "translation": {
+    "enabled": false,
+    "backend": "mymemory",
+    "base_url": "https://api.mymemory.translated.net",
+    "model": "",
+    "api_key": "",
+    "timeout_seconds": 20,
+    "batch_size": 5,
+    "source_lang": "en",
+    "target_lang": "zh-CN",
+    "email": ""
+  },
+  "limits": {
+    "papers": 10,
+    "projects": 10,
+    "news": 30
+  }
+}
