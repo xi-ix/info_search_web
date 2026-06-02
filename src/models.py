@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 
-@dataclass(slots=True)
+@dataclass
 class FeedItem:
     title: str
     summary: str

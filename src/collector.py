@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from html import unescape
 import re
@@ -638,7 +638,7 @@ def parse_rss_datetime(value: str) -> datetime:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if parsed.tzinfo is None:
         return parsed
-    return parsed.astimezone(UTC).replace(tzinfo=None)
+    return parsed.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def normalize_arxiv_link(link: str, title: str) -> str:

@@ -14,10 +14,15 @@
 - 模型资讯已经接入多源 RSS/Atom 聚合
 
 ## 运行方式
-
+python 3.9+
 ```bash
+# windows
 pip install -r requirements.txt
 python -m src.app
+# macos
+pip3 install -r requirements.txt
+python3 -m src.app
+```
 ```
 
 
